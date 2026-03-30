@@ -16,15 +16,22 @@ import hashlib
 import logging
 import os
 import sys
+import time
 from collections import defaultdict
 from pathlib import Path
 
 
-class FileDuplicateFinder:
-    """Find duplicate files in given directories."""
+class CONST:
+    """Constants for the duplicate file finder."""
 
     CHUNK_SIZE = 65536
-    PROGRESS_INTERVAL = 1000  # Log progress every N files
+    PROGRESS_INTERVAL_SCAN = 1000  # Log scan progress every N files
+    PROGRESS_INTERVAL_HASH = PROGRESS_INTERVAL_SCAN / 10  # Log hash progress every N files
+    START_SECONDS = time.perf_counter()
+
+
+class FileDuplicateFinder:
+    """Find duplicate files in given directories."""
 
     def __init__(self, min_size_kb: int = 1, logger: logging.Logger = None):
         """
@@ -69,7 +76,7 @@ class FileDuplicateFinder:
         hash_obj = hashlib.sha256()
         try:
             with open(file_path, "rb") as f_read:
-                while chunk := f_read.read(self.CHUNK_SIZE):
+                while chunk := f_read.read(CONST.CHUNK_SIZE):
                     hash_obj.update(chunk)
             return hash_obj.hexdigest()
         except (IOError, OSError):
@@ -134,7 +141,7 @@ class FileDuplicateFinder:
         self.file_count += 1
 
         # Log progress every N files
-        if self.file_count % self.PROGRESS_INTERVAL == 0:
+        if self.file_count % CONST.PROGRESS_INTERVAL_SCAN == 0:
             self.logger.info("  Processed %d files...", self.file_count)
 
         # Get file extension
@@ -167,7 +174,7 @@ class FileDuplicateFinder:
                     hash_count += 1
 
                     # Log progress every N files
-                    if hash_count % self.PROGRESS_INTERVAL == 0:
+                    if hash_count % CONST.PROGRESS_INTERVAL_HASH == 0:
                         self.logger.info("  Hashed %d files...", hash_count)
 
                     key = (ext, file_hash)
@@ -278,7 +285,7 @@ Examples:
     else:
         logger.info("No duplicate files found.")
 
-    logger.info("Finished.")
+    logger.info("Finished in %.2f seconds.", time.perf_counter() - CONST.START_SECONDS)
 
 
 if __name__ == "__main__":
