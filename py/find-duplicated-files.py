@@ -83,11 +83,11 @@ class FileDuplicateFinder:
             folders: List of folder paths to scan
         """
         self.logger.info(
-            f"Scanning {len(folders)} folder(s) for files larger than {self.min_size_kb} KB..."
+            "Scanning %d folder(s) for files larger than %d KB...", len(folders), self.min_size_kb
         )
         for folder in folders:
             self._scan_folder(folder)
-        self.logger.info(f"Scan complete. Processed {self.file_count} files.")
+        self.logger.info("Scan complete. Processed %d files.", self.file_count)
 
         # Calculate hashes only for files with duplicate size+extension combinations
         self._calculate_hashes_for_duplicates()
@@ -101,14 +101,14 @@ class FileDuplicateFinder:
         """
         folder_path = Path(folder)
         if not folder_path.exists():
-            self.logger.warning(f"Folder '{folder}' does not exist")
+            self.logger.warning("Folder '%s' does not exist", folder)
             return
 
         if not folder_path.is_dir():
-            self.logger.warning(f"'{folder}' is not a directory")
+            self.logger.warning("'%s' is not a directory", folder)
             return
 
-        self.logger.info(f"Scanning folder: {folder}")
+        self.logger.info("Scanning folder: %s", folder)
 
         # Walk through all files in the folder
         for root, _dummy, files in os.walk(folder_path):
@@ -135,7 +135,7 @@ class FileDuplicateFinder:
 
         # Log progress every N files
         if self.file_count % self.PROGRESS_INTERVAL == 0:
-            self.logger.info(f"  Processed {self.file_count} files...")
+            self.logger.info("  Processed %d files...", self.file_count)
 
         # Get file extension
         _, ext = os.path.splitext(file_path)
@@ -169,14 +169,14 @@ class FileDuplicateFinder:
 
                     # Log progress every N files
                     if hash_count % self.PROGRESS_INTERVAL == 0:
-                        self.logger.info(f"  Hashed {hash_count} files...")
+                        self.logger.info("  Hashed %d files...", hash_count)
 
                     key = (ext, file_hash)
                     hashed_info[size_kb][key].append(file_path)
 
         # Replace the file_info with hashed version
         self.file_info = hashed_info
-        self.logger.info(f"Completed hashing {hash_count} potential duplicate files.")
+        self.logger.info("Completed hashing %d potential duplicate files.", hash_count)
 
     def get_duplicates(self) -> dict:
         """
@@ -197,7 +197,7 @@ class FileDuplicateFinder:
                 duplicates[size_kb] = groups
                 duplicate_count += sum(len(g) for g in groups)
 
-        self.logger.info(f"Found {duplicate_count} duplicate files.")
+        self.logger.info("Found %d duplicate files.", duplicate_count)
         return duplicates
 
     def print_duplicates(self, duplicates: dict) -> None:
@@ -246,9 +246,7 @@ Examples:
         help="folders to search for duplicate files",
     )
 
-    parser.add_argument(
-        "--min-size", "-m", type=int, required=True, help="minimum file size in KB"
-    )
+    parser.add_argument("--min-size", "-m", type=int, required=True, help="minimum file size in KB")
 
     args = parser.parse_args()
 
