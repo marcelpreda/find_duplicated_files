@@ -220,13 +220,25 @@ class FileDuplicateFinder:
 def main():
     """Main entry point."""
     # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H%M%S",
-        stream=sys.stderr,
-    )
     logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    # Format for both handlers
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H_%M_%S"
+    )
+
+    # Handler for stdout - all levels
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.setFormatter(formatter)
+    logger.addHandler(stdout_handler)
+
+    # Handler for stderr - WARNING and higher
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(formatter)
+    logger.addHandler(stderr_handler)
 
     parser = argparse.ArgumentParser(
         description="Find duplicate files in given folders.",
