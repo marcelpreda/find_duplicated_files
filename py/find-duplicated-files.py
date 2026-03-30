@@ -140,20 +140,19 @@ class FileDuplicateFinder:
         # Get file extension
         _, ext = os.path.splitext(file_path)
 
-        # Group files by size and extension (hash calculation deferred)
-        size_kb = file_size // 1024
-        self.file_info[size_kb][ext].append(os.path.abspath(file_path))
+        # Group files by exact byte size and extension (hash calculation deferred)
+        self.file_info[file_size][ext].append(os.path.abspath(file_path))
 
     def _calculate_hashes_for_duplicates(self) -> None:
         """
         Calculate hashes only for files with duplicate size+extension combinations.
-        Reorganizes file_info from [size_kb][ext] to [size_kb][(ext, hash)].
+        Reorganizes file_info from [file_size][ext] to [file_size][(ext, hash)].
         """
         self.logger.info("Calculating hashes for potential duplicates...")
         hashed_info = defaultdict(lambda: defaultdict(list))
         hash_count = 0
 
-        for size_kb, ext_groups in self.file_info.items():
+        for file_size, ext_groups in self.file_info.items():
             for ext, file_paths in ext_groups.items():
                 # Skip if only one file for this size+extension combination
                 if len(file_paths) < 2:
@@ -172,7 +171,7 @@ class FileDuplicateFinder:
                         self.logger.info("  Hashed %d files...", hash_count)
 
                     key = (ext, file_hash)
-                    hashed_info[size_kb][key].append(file_path)
+                    hashed_info[file_size][key].append(file_path)
 
         # Replace the file_info with hashed version
         self.file_info = hashed_info
@@ -189,11 +188,12 @@ class FileDuplicateFinder:
         duplicates = {}
         duplicate_count = 0
 
-        for size_kb in sorted(self.file_info.keys(), reverse=True):
-            size_groups = self.file_info[size_kb]
+        for file_size in sorted(self.file_info.keys(), reverse=True):
+            size_groups = self.file_info[file_size]
             groups = [paths for paths in size_groups.values() if len(paths) >= 2]
 
             if groups:
+                size_kb = file_size // 1024
                 duplicates[size_kb] = groups
                 duplicate_count += sum(len(g) for g in groups)
 
