@@ -17,6 +17,7 @@ import logging
 import os
 import sys
 import time
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
 
@@ -207,6 +208,35 @@ class FileDuplicateFinder:
         self.logger.info("Found %d duplicate files.", duplicate_count)
         return duplicates
 
+    def save_duplicates_to_xml(self, xml_file_path: str) -> None:
+        """
+        Save duplicate file groups to an XML file.
+
+        Args:
+            xml_file_path: Path to the output XML file
+        """
+        self.logger.info("Saving duplicates to XML file: %s", xml_file_path)
+
+        root = ET.Element("duplicates")
+        for file_size in sorted(self.file_info.keys(), reverse=True):
+            size_groups = self.file_info[file_size]
+            size_element = ET.SubElement(root, "size", value=str(file_size // 1024))
+
+            for (ext, file_hash), paths in size_groups.items():
+                if len(paths) < 2:
+                    continue
+
+                checksum_element = ET.SubElement(size_element, "checksum", value=file_hash)
+                for path in sorted(paths):
+                    file_path_element = ET.SubElement(checksum_element, "file_path")
+                    file_path_element.text = path
+
+            if len(size_element) == 0:
+                root.remove(size_element)
+
+        tree = ET.ElementTree(root)
+        tree.write(xml_file_path, encoding="utf-8", xml_declaration=True)
+
     def print_duplicates(self, duplicates: dict) -> None:
         """
         Print duplicates in the specified format.
@@ -222,6 +252,51 @@ class FileDuplicateFinder:
                 print(f"{formatted_size}:")
                 for path in sorted(paths):
                     print(path)
+
+
+def parse_arguments(logger: logging.Logger) -> argparse.Namespace:
+    """
+    Parse command line arguments.
+
+    Args:
+        logger: Logger instance for error reporting
+
+    Returns:
+        Parsed arguments
+    """
+    parser = argparse.ArgumentParser(
+        description="Find duplicate files in given folders.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s -d /home/user/photos /home/user/backup -m 100
+  %(prog)s --directories . --min-size 1024
+        """,
+    )
+
+    parser.add_argument(
+        "-d",
+        "--directories",
+        nargs="+",
+        required=True,
+        help="folders to search for duplicate files",
+    )
+
+    parser.add_argument("--min-size", "-m", type=int, required=True, help="minimum file size in KB")
+    parser.add_argument(
+        "--xml",
+        "-x",
+        metavar="PATH",
+        help="save the list of duplicated files to an XML file",
+    )
+
+    args = parser.parse_args()
+
+    if args.min_size < 1:
+        logger.error("min-size must be at least 1 KB")
+        sys.exit(1)
+
+    return args
 
 
 def main():
@@ -247,31 +322,7 @@ def main():
     stderr_handler.setFormatter(formatter)
     logger.addHandler(stderr_handler)
 
-    parser = argparse.ArgumentParser(
-        description="Find duplicate files in given folders.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s -d /home/user/photos /home/user/backup -m 100
-  %(prog)s --directories . --min-size 1024
-        """,
-    )
-
-    parser.add_argument(
-        "-d",
-        "--directories",
-        nargs="+",
-        required=True,
-        help="folders to search for duplicate files",
-    )
-
-    parser.add_argument("--min-size", "-m", type=int, required=True, help="minimum file size in KB")
-
-    args = parser.parse_args()
-
-    if args.min_size < 1:
-        logger.error("min-size must be at least 1 KB")
-        sys.exit(1)
+    args = parse_arguments(logger)
 
     # Create finder and scan files
     finder = FileDuplicateFinder(min_size_kb=args.min_size, logger=logger)
@@ -282,6 +333,8 @@ Examples:
 
     if duplicates:
         finder.print_duplicates(duplicates)
+        if args.xml:
+            finder.save_duplicates_to_xml(args.xml)
     else:
         logger.info("No duplicate files found.")
 
